@@ -135,7 +135,9 @@ async function createServer(botToken, clientId, serverId, botName, serverName) {
         const pterodactylServerId = response.data.attributes.id;
         const serverUuid = response.data.attributes.uuid;
         
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        console.log('Server created, waiting for installation to complete...');
+        await waitForInstallation(pterodactylServerId);
+        console.log('Installation complete!');
         
         await updateEnvFile(serverUuid, botToken);
         
@@ -221,6 +223,37 @@ async function findUserByEmail(email) {
 async function getNodeAllocations(nodeId) {
     const response = await api.get(`/nodes/${nodeId}/allocations`);
     return response.data.data.filter(alloc => !alloc.attributes.assigned);
+}
+
+async function waitForInstallation(pterodactylId, maxWaitTime = 300000) {
+    const startTime = Date.now();
+    const checkInterval = 5000;
+    
+    while (Date.now() - startTime < maxWaitTime) {
+        try {
+            const response = await api.get(`/servers/${pterodactylId}`);
+            const server = response.data.attributes;
+            
+            if (server.status === null || server.status === 'installed') {
+                return true;
+            }
+            
+            if (server.status === 'install_failed') {
+                throw new Error('Server installation failed');
+            }
+            
+            console.log(`Installation status: ${server.status || 'installing'}... checking again in 5s`);
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+        } catch (error) {
+            if (error.message === 'Server installation failed') {
+                throw error;
+            }
+            console.error('Error checking installation status:', error.message);
+            await new Promise(resolve => setTimeout(resolve, checkInterval));
+        }
+    }
+    
+    throw new Error('Server installation timed out');
 }
 
 module.exports = {
