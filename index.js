@@ -59,6 +59,24 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'addBotModal') {
+            try {
+                const addCommand = client.commands.get('add');
+                await addCommand.handleModal(interaction, database);
+            } catch (error) {
+                console.error('Error handling modal:', error);
+                const reply = { content: 'There was an error processing your submission!', ephemeral: true };
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp(reply);
+                } else {
+                    await interaction.reply(reply);
+                }
+            }
+        }
+        return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
