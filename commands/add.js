@@ -143,7 +143,7 @@ async function processBot(interaction, database, token, clientId, serverId) {
         await interaction.editReply('✅ Bot instance created successfully! See details below.');
 
         // Send public embed with server information
-        const maskedToken = token.slice(0, 20) + '••••••••••••••••••••' + token.slice(-4);
+        const maskedToken = token.slice(0, 10) + '.....' + token.slice(-4);
         
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
@@ -153,16 +153,10 @@ async function processBot(interaction, database, token, clientId, serverId) {
                 { name: '🏷️ Bot Name', value: String(serverData.botName), inline: true },
                 { name: '🆔 Client ID', value: String(clientId), inline: true },
                 { name: '🔑 Bot Token', value: `||${maskedToken}||`, inline: false },
-                { name: '🌐 Discord Server', value: String(serverData.serverName), inline: true },
-                { name: '📡 Server ID', value: String(serverId), inline: true },
-                { name: '🖥️ Pterodactyl Server', value: String(serverInfo.name || 'N/A'), inline: false },
-                { name: '🔢 Pterodactyl ID', value: String(serverInfo.pterodactylId || 'N/A'), inline: true },
-                { name: '🆔 Server UUID', value: String(serverInfo.uuid || 'N/A'), inline: false },
-                { name: '✅ Status', value: 'Starting...', inline: true },
-                { name: '👤 Created By', value: `<@${interaction.user.id}>`, inline: true }
+                { name: '📡 Server ID', value: String(serverId), inline: true }
             )
             .setTimestamp()
-            .setFooter({ text: 'Bot Instance Manager' });
+            .setFooter({ text: 'Stacy Manager' });
 
         await interaction.channel.send({ embeds: [embed] });
 
