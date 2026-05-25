@@ -77,6 +77,7 @@ module.exports = {
             } else {
                 await interaction.editReply('Suspending server...');
 
+                await pterodactyl.stopServer(serverUuid);
                 await pterodactyl.suspendServer(serverData.pterodactylId);
 
                 const oneWeek = 7 * 24 * 60 * 60 * 1000;

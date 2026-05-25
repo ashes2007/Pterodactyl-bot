@@ -170,6 +170,7 @@ async function updateEnvFile(serverUuid, botToken, clientId, serverId) {
 CLIENT_ID=${clientId}
 SERVER_ID=${serverId}
 REDIS_HOST=23.160.169.194:3024
+REDIS_PORT=3024
 REDIS_PASSWORD=stacy@db
 LOG_WEBHOOK_URL=https://discord.com/api/v10/webhooks/1508283255475015753/-xQAiNmcw9UzNK0B9tsFaRjCbQ-DrJcgahW7r18PVIibpU32s0Ig3IWsn48l5nQiX43N
 PING_API_KEY=ashleyandkaze@qerra-stacy-hival#collab2026
@@ -197,6 +198,19 @@ async function startServer(serverUuid) {
     });
 
     await clientApi.post(`/servers/${serverUuid}/power`, { signal: 'start' });
+}
+
+async function stopServer(serverUuid) {
+    const clientApi = axios.create({
+        baseURL: `${process.env.PTERODACTYL_URL}/api/client`,
+        headers: {
+            'Authorization': `Bearer ${process.env.PTERODACTYL_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    });
+
+    await clientApi.post(`/servers/${serverUuid}/power`, { signal: 'stop' });
 }
 
 async function suspendServer(pterodactylId) {
@@ -269,5 +283,6 @@ module.exports = {
     unsuspendServer,
     deleteServer,
     getServers,
-    startServer
+    startServer,
+    stopServer
 };
