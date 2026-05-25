@@ -18,9 +18,6 @@ module.exports = {
         const choices = [];
 
         for (const [uuid, data] of Object.entries(database.servers)) {
-            if (!data.deleteAt) {
-                continue;
-            }
             choices.push({
                 name: `${data.botName} | ${data.serverName}`,
                 value: uuid

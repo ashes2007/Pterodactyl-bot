@@ -70,71 +70,85 @@ async function getLocations() {
 }
 
 async function createServer(botToken, clientId, serverId, botName, serverName) {
-    const eggInfo = await findNodeJsEgg();
-    const nodes = await getNodes();
-    
-    if (nodes.length === 0) {
-        throw new Error('No nodes available');
+    try {
+        const eggInfo = await findNodeJsEgg();
+        const nodes = await getNodes();
+        
+        if (nodes.length === 0) {
+            throw new Error('No nodes available');
+        }
+        
+        const node = nodes[0];
+        const locations = await getLocations();
+        const location = locations[0];
+
+        const userId = await findUserByEmail('Buyers@stacyapp.com');
+        if (!userId) {
+            throw new Error('Owner user not found');
+        }
+
+        const pterodactylServerName = `${botName} | ${serverName}`;
+        
+        const allocations = await getNodeAllocations(node.attributes.id);
+        if (allocations.length === 0) {
+            throw new Error('No allocations available on the node');
+        }
+        
+        const serverData = {
+            name: pterodactylServerName,
+            user: userId,
+            egg: eggInfo.eggId,
+            docker_image: 'ghcr.io/parkervcp/yolks:nodejs_21',
+            startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; /usr/local/bin/node /home/container/{{JS_FILE}}',
+            environment: {
+                JS_FILE: 'Buyer.js',
+                AUTO_UPDATE: '1',
+                NODE_PACKAGES: '',
+                UNNODE_PACKAGES: '',
+                GIT_ADDRESS: 'https://github.com/ashes2007/Stacy-Bot.git',
+                BRANCH: 'Buyers',
+                USERNAME: 'ashes2007',
+                ACCESS_TOKEN: process.env.GITHUB_TOKEN || ''
+            },
+            limits: {
+                memory: 512,
+                swap: 0,
+                disk: 1024,
+                io: 500,
+                cpu: 100
+            },
+            feature_limits: {
+                databases: 0,
+                backups: 0,
+                allocations: 1
+            },
+            allocation: {
+                default: allocations[0].attributes.id
+            },
+            start_on_completion: false
+        };
+
+        console.log('Creating server with data:', JSON.stringify(serverData, null, 2));
+        const response = await api.post('/servers', serverData);
+        const pterodactylServerId = response.data.attributes.id;
+        const serverUuid = response.data.attributes.uuid;
+        
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        await updateEnvFile(serverUuid, botToken);
+        
+        return {
+            pterodactylId: pterodactylServerId,
+            uuid: serverUuid,
+            name: pterodactylServerName
+        };
+    } catch (error) {
+        if (error.response) {
+            console.error('Pterodactyl API Error:', JSON.stringify(error.response.data, null, 2));
+            throw new Error(`Pterodactyl API Error: ${JSON.stringify(error.response.data)}`);
+        }
+        throw error;
     }
-    
-    const node = nodes[0];
-    const locations = await getLocations();
-    const location = locations[0];
-
-    const userId = await findUserByEmail('Buyers@stacyapp.com');
-    if (!userId) {
-        throw new Error('Owner user not found');
-    }
-
-    const pterodactylServerName = `${botName} | ${serverName}`;
-    
-    const serverData = {
-        name: pterodactylServerName,
-        user: userId,
-        egg: eggInfo.eggId,
-        docker_image: 'ghcr.io/parkervcp/yolks:nodejs_21',
-        startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; /usr/local/bin/node /home/container/{{JS_FILE}}',
-        environment: {
-            JS_FILE: 'Buyer.js',
-            AUTO_UPDATE: '1',
-            NODE_PACKAGES: '',
-            UNNODE_PACKAGES: '',
-            GIT_ADDRESS: 'https://github.com/ashes2007/Stacy-Bot.git',
-            BRANCH: 'main',
-            USERNAME: 'ashes2007',
-            ACCESS_TOKEN: process.env.GITHUB_TOKEN || ''
-        },
-        limits: {
-            memory: 512,
-            swap: 0,
-            disk: 1024,
-            io: 500,
-            cpu: 100
-        },
-        feature_limits: {
-            databases: 0,
-            backups: 0,
-            allocations: 1
-        },
-        allocation: {
-            default: node.attributes.id
-        },
-        start_on_completion: false
-    };
-
-    const response = await api.post('/servers', serverData);
-    const pterodactylServerId = response.data.attributes.id;
-    const serverUuid = response.data.attributes.uuid;
-    
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    await updateEnvFile(serverUuid, botToken);
-    
-    return {
-        pterodactylId: pterodactylServerId,
-        uuid: serverUuid,
-        name: pterodactylServerName
-    };
 }
 
 async function updateEnvFile(serverUuid, botToken) {
@@ -200,6 +214,11 @@ async function findUserByEmail(email) {
     const users = await getUsers();
     const user = users.find(u => u.attributes.email === email);
     return user ? user.attributes.id : null;
+}
+
+async function getNodeAllocations(nodeId) {
+    const response = await api.get(`/nodes/${nodeId}/allocations`);
+    return response.data.data.filter(alloc => !alloc.attributes.assigned);
 }
 
 module.exports = {
