@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const pterodactyl = require('../utils/pterodactyl');
+const { isAdmin } = require('../utils/permissions');
 const fs = require('fs');
 const path = require('path');
 
@@ -34,6 +35,14 @@ module.exports = {
     },
 
     async execute(interaction, database) {
+        if (!isAdmin(interaction.user.id)) {
+            await interaction.reply({
+                content: '❌ You do not have permission to use this command.',
+                ephemeral: true
+            });
+            return;
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         const serverUuid = interaction.options.getString('bot');

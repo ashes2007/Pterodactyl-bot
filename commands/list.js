@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { isAdmin } = require('../utils/permissions');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -6,6 +7,14 @@ module.exports = {
         .setDescription('List all active Discord bot instances'),
 
     async execute(interaction, database) {
+        if (!isAdmin(interaction.user.id)) {
+            await interaction.reply({
+                content: '❌ You do not have permission to use this command.',
+                ephemeral: true
+            });
+            return;
+        }
+
         const servers = Object.values(database.servers);
 
         if (servers.length === 0) {

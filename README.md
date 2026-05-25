@@ -5,8 +5,10 @@ A Discord bot that automates deployment and management of custom Discord bots us
 ## Features
 
 - `/add` - Create new bot instances with automatic GitHub deployment
-- `/remove` - Suspend and schedule bot deletion
+- `/remove` - Suspend and schedule bot deletion (or delete immediately)
+- `/cancel` - Cancel scheduled deletion and restart suspended bots
 - `/list` - View all active bot deployments
+- **Admin-only commands** - Only Discord users listed in `admins.conf` can use commands
 
 ## Setup
 
@@ -25,7 +27,13 @@ CLIENT_ID=your_bot_client_id
 GUILD_ID=your_guild_id
 ```
 
-3. Start the bot:
+3. Create `admins.conf` with Discord user IDs (one per line):
+```
+123456789012345678
+987654321098765432
+```
+
+4. Start the bot:
 ```bash
 npm start
 ```

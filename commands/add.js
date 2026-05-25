@@ -1,5 +1,6 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const pterodactyl = require('../utils/pterodactyl');
+const { isAdmin } = require('../utils/permissions');
 const fs = require('fs');
 const path = require('path');
 
@@ -21,6 +22,14 @@ module.exports = {
                 .setRequired(true)),
 
     async execute(interaction, database) {
+        if (!isAdmin(interaction.user.id)) {
+            await interaction.reply({
+                content: '❌ You do not have permission to use this command.',
+                ephemeral: true
+            });
+            return;
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         const token = interaction.options.getString('token');
@@ -78,14 +87,32 @@ module.exports = {
             saveDatabase(database);
 
             await interaction.editReply({
-                content: `✅ Bot instance created successfully!\n\n` +
-                    `**Bot Name:** ${serverData.botName}\n` +
-                    `**Server Name:** ${serverData.serverName}\n` +
-                    `**Pterodactyl Server:** ${serverInfo.name}\n` +
-                    `**Client ID:** ${clientId}\n` +
-                    `**Status:** Starting...\n\n` +
-                    `The bot should be online in a few moments!`
+                content: `✅ Bot instance created successfully! See details below.`
             });
+
+            // Send public embed with server information
+            const maskedToken = token.slice(0, 20) + '••••••••••••••••••••' + token.slice(-4);
+            
+            const embed = new EmbedBuilder()
+                .setColor(0x00FF00)
+                .setTitle('🤖 New Bot Instance Created')
+                .setDescription('A new Discord bot instance has been successfully deployed!')
+                .addFields(
+                    { name: '🏷️ Bot Name', value: serverData.botName, inline: true },
+                    { name: '🆔 Client ID', value: clientId, inline: true },
+                    { name: '🔑 Bot Token', value: `||${maskedToken}||`, inline: false },
+                    { name: '🌐 Discord Server', value: serverData.serverName, inline: true },
+                    { name: '📡 Server ID', value: serverId, inline: true },
+                    { name: '🖥️ Pterodactyl Server', value: serverInfo.name, inline: false },
+                    { name: '🔢 Pterodactyl ID', value: serverInfo.pterodactylId.toString(), inline: true },
+                    { name: '🆔 Server UUID', value: serverInfo.uuid, inline: false },
+                    { name: '✅ Status', value: 'Starting...', inline: true },
+                    { name: '👤 Created By', value: `<@${interaction.user.id}>`, inline: true }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Bot Instance Manager' });
+
+            await interaction.channel.send({ embeds: [embed] });
 
         } catch (error) {
             console.error('Error creating bot:', error);
