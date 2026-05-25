@@ -1,0 +1,34 @@
+{
+  "faqs": [
+    {
+      "id": "create-bot",
+      "question": "How to create a bot and get its token?",
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click **New Application** and give it a name\n**Step 3:** Go to the **Bot** tab on the left\n**Step 4:** Click **Add Bot** and confirm\n**Step 5:** Under **Token**, click **Reset Token** and copy it\n**Step 6:** Save this token securely - you'll need it when adding the bot!"
+    },
+    {
+      "id": "client-id",
+      "question": "How to get a bot's Client ID?",
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **OAuth2** tab\n**Step 4:** Copy the **Client ID** at the top\n\nAlternatively, you can find it in the **General Information** tab as **Application ID**."
+    },
+    {
+      "id": "server-id",
+      "question": "How to get a Discord Server ID?",
+      "answer": "**Step 1:** Enable Developer Mode in Discord:\n- User Settings → App Settings → Advanced → Enable Developer Mode\n\n**Step 2:** Right-click on your server icon\n**Step 3:** Click **Copy Server ID** at the bottom"
+    },
+    {
+      "id": "reset-token",
+      "question": "How to reset a bot token?",
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **Bot** tab\n**Step 4:** Under **Token**, click **Reset Token**\n**Step 5:** Confirm the reset\n**Step 6:** Copy the new token immediately\n\n⚠️ **Warning:** Resetting the token will invalidate the old one, and you'll need to update it everywhere the bot is running!"
+    },
+    {
+      "id": "invite-bot",
+      "question": "How to invite a bot to a server?",
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **OAuth2** → **URL Generator** tab\n**Step 4:** Select **bot** and **applications.commands** scopes\n**Step 5:** Select the permissions your bot needs\n**Step 6:** Copy the generated URL and open it in your browser\n**Step 7:** Select your server and authorize the bot"
+    },
+    {
+      "id": "intents",
+      "question": "How to enable bot intents?",
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **Bot** tab\n**Step 4:** Scroll down to **Privileged Gateway Intents**\n**Step 5:** Enable the intents your bot needs:\n- **Presence Intent** - See user status\n- **Server Members Intent** - Access member lists\n- **Message Content Intent** - Read message content\n\n⚠️ **Note:** These require verification if your bot is in 100+ servers."
+    }
+  ]
+}

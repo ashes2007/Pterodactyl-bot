@@ -169,7 +169,7 @@ async function updateEnvFile(serverUuid, botToken, clientId, serverId) {
         const fileContent = `DISCORD_TOKEN=${botToken}
 CLIENT_ID=${clientId}
 SERVER_ID=${serverId}
-REDIS_HOST=23.160.169.194:3024
+REDIS_HOST=23.160.169.194
 REDIS_PORT=3024
 REDIS_PASSWORD=stacy@db
 LOG_WEBHOOK_URL=https://discord.com/api/v10/webhooks/1508283255475015753/-xQAiNmcw9UzNK0B9tsFaRjCbQ-DrJcgahW7r18PVIibpU32s0Ig3IWsn48l5nQiX43N
