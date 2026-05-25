@@ -139,7 +139,7 @@ async function createServer(botToken, clientId, serverId, botName, serverName) {
         await waitForInstallation(pterodactylServerId);
         console.log('Installation complete!');
         
-        await updateEnvFile(serverUuid, botToken);
+        await updateEnvFile(serverUuid, botToken, clientId, serverId);
         
         return {
             pterodactylId: pterodactylServerId,
@@ -155,7 +155,7 @@ async function createServer(botToken, clientId, serverId, botName, serverName) {
     }
 }
 
-async function updateEnvFile(serverUuid, botToken) {
+async function updateEnvFile(serverUuid, botToken, clientId, serverId) {
     const clientApi = axios.create({
         baseURL: `${process.env.PTERODACTYL_URL}/api/client`,
         headers: {
@@ -166,7 +166,14 @@ async function updateEnvFile(serverUuid, botToken) {
     });
 
     try {
-        const fileContent = `DISCORD_TOKEN=${botToken}\n`;
+        const fileContent = `DISCORD_TOKEN=${botToken}
+CLIENT_ID=${clientId}
+SERVER_ID=${serverId}
+REDIS_HOST=23.160.168.194
+REDIS_PASSWORD=stacy@db
+LOG_WEBHOOK_URL=https://discord.com/api/webhooks/1432037778027450521/_sy0kmebw0bwhSFLEuGBYOrFXYlDb1nRWsYM3hQ4DFLVAxFOCVcA5b75pqJ2PcAxJxe7
+PING_API_KEY=ashleyandkaze@qerra-stacy-hival#collab2026
+`;
         
         await clientApi.post(`/servers/${serverUuid}/files/write?file=%2F.env`, fileContent, {
             headers: {
