@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { checkPermissions } = require('../utils/permissions');
+const { isAdmin } = require('../utils/permissions');
 
 const faqData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'faq.json'), 'utf8'));
 
@@ -20,7 +20,7 @@ module.exports = {
                     }))
                 )),
     async execute(interaction) {
-        if (!checkPermissions(interaction.user.id)) {
+        if (!isAdmin(interaction.user.id)) {
             return interaction.reply({
                 content: '❌ You do not have permission to use this command.',
                 ephemeral: true
