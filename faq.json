@@ -28,7 +28,7 @@
     {
       "id": "intents",
       "question": "How to enable bot intents?",
-      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **Bot** tab\n**Step 4:** Scroll down to **Privileged Gateway Intents**\n**Step 5:** Enable the intents your bot needs:\n- **Presence Intent** - See user status\n- **Server Members Intent** - Access member lists\n- **Message Content Intent** - Read message content\n\n	rn⚠	rnufe0f **Note:** These require verification if your bot is in 100+ servers."
+      "answer": "**Step 1:** Go to https://discord.com/developers/applications\n**Step 2:** Click on your bot application\n**Step 3:** Go to the **Bot** tab\n**Step 4:** Scroll down to **Privileged Gateway Intents**\n**Step 5:** Enable the intents your bot needs:\n- **Presence Intent** - See user status\n- **Server Members Intent** - Access member lists\n- **Message Content Intent** - Read message content\n\n⚠️ **Note:** These require verification if your bot is in 100+ servers."
     },
     {
       "id": "disable-public-bot",
