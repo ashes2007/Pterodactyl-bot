@@ -169,9 +169,9 @@ async function updateEnvFile(serverUuid, botToken, clientId, serverId) {
         const fileContent = `DISCORD_TOKEN=${botToken}
 CLIENT_ID=${clientId}
 SERVER_ID=${serverId}
-REDIS_HOST=23.160.168.194
+REDIS_HOST=23.160.169.194:3024
 REDIS_PASSWORD=stacy@db
-LOG_WEBHOOK_URL=https://discord.com/api/webhooks/1432037778027450521/_sy0kmebw0bwhSFLEuGBYOrFXYlDb1nRWsYM3hQ4DFLVAxFOCVcA5b75pqJ2PcAxJxe7
+LOG_WEBHOOK_URL=https://discord.com/api/v10/webhooks/1508283255475015753/-xQAiNmcw9UzNK0B9tsFaRjCbQ-DrJcgahW7r18PVIibpU32s0Ig3IWsn48l5nQiX43N
 PING_API_KEY=ashleyandkaze@qerra-stacy-hival#collab2026
 `;
         
