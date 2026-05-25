@@ -101,9 +101,9 @@ async function createServer(botToken, clientId, serverId, botName, serverName) {
             docker_image: 'ghcr.io/ptero-eggs/yolks:nodejs_21',
             startup: 'if [[ -d .git ]] && [[ 0 == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ "${MAIN_FILE}" == "*.js" ]]; then /usr/local/bin/node "/home/container/${MAIN_FILE}" ${NODE_ARGS}; else /usr/local/bin/ts-node --esm "/home/container/${MAIN_FILE}" ${NODE_ARGS}; fi',
             environment: {
-                MAIN_FILE: 'Buyer.js',
+                MAIN_FILE: 'index.js',
                 USER_UPLOAD: '0',
-                JS_FILE: 'Buyer.js',
+                JS_FILE: 'index.js',
                 AUTO_UPDATE: '1',
                 NODE_PACKAGES: '',
                 UNNODE_PACKAGES: '',
@@ -167,7 +167,7 @@ async function updateEnvFile(serverUuid, botToken, clientId, serverId) {
 
     try {
         const fileContent = `DISCORD_TOKEN=${botToken}
-CLIENT_ID=${clientId}
+DISCORD_CLIENT_ID=${clientId}
 SERVER_ID=${serverId}
 REDIS_HOST=23.160.169.194
 REDIS_PORT=3024
