@@ -99,7 +99,7 @@ async function createServer(botToken, clientId, serverId, botName, serverName) {
             user: userId,
             egg: eggInfo.eggId,
             docker_image: 'ghcr.io/ptero-eggs/yolks:nodejs_21',
-            startup: 'if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; /usr/local/bin/node /home/container/{{JS_FILE}}',
+            startup: 'if [[ -d .git ]] && [[ 0 == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ "${MAIN_FILE}" == "*.js" ]]; then /usr/local/bin/node "/home/container/${MAIN_FILE}" ${NODE_ARGS}; else /usr/local/bin/ts-node --esm "/home/container/${MAIN_FILE}" ${NODE_ARGS}; fi',
             environment: {
                 MAIN_FILE: 'Buyer.js',
                 USER_UPLOAD: '0',
@@ -227,7 +227,7 @@ async function getNodeAllocations(nodeId) {
 
 async function waitForInstallation(pterodactylId, maxWaitTime = 300000) {
     const startTime = Date.now();
-    const checkInterval = 5000;
+    const checkInterval = 30000;
     
     while (Date.now() - startTime < maxWaitTime) {
         try {
@@ -242,7 +242,7 @@ async function waitForInstallation(pterodactylId, maxWaitTime = 300000) {
                 throw new Error('Server installation failed');
             }
             
-            console.log(`Installation status: ${server.status || 'installing'}... checking again in 5s`);
+            console.log(`Installation status: ${server.status || 'installing'}... checking again in 30s`);
             await new Promise(resolve => setTimeout(resolve, checkInterval));
         } catch (error) {
             if (error.message === 'Server installation failed') {
