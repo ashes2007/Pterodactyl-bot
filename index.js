@@ -2,6 +2,7 @@ const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord
 const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
+const express = require('express');
 require('dotenv').config();
 
 const client = new Client({
@@ -13,6 +14,30 @@ const client = new Client({
 
 client.commands = new Collection();
 const database = loadDatabase();
+
+// Setup Stripe webhook server
+const app = express();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        console.error('Webhook signature verification failed:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    await handleStripeWebhook(event, client, database);
+    res.json({received: true});
+});
+
+const PORT = process.env.WEBHOOK_PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Webhook server listening on port ${PORT}`);
+});
 
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 
@@ -259,6 +284,129 @@ async function processQueue(client, database) {
 process.on('unhandledRejection', error => {
     console.error('Unhandled promise rejection:', error);
 });
+
+async function handleStripeWebhook(event, client, database) {
+    const { EmbedBuilder } = require('discord.js');
+    const LOG_CHANNEL_ID = '1508754578399690874';
+
+    try {
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const invoiceId = session.metadata?.invoiceId;
+
+            if (!invoiceId || !database.invoices || !database.invoices[invoiceId]) {
+                console.log('Invoice not found for session:', session.id);
+                return;
+            }
+
+            const invoice = database.invoices[invoiceId];
+            invoice.status = 'paid';
+            invoice.paidAt = Date.now();
+            invoice.stripeSessionId = session.id;
+            invoice.stripePaymentIntentId = session.payment_intent;
+            saveDatabase(database);
+
+            const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+            const embed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('✅ Payment Successful')
+                .setDescription(`Invoice **${invoiceId}** has been paid!`)
+                .addFields(
+                    { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency.toUpperCase()}`, inline: true },
+                    { name: '👤 Customer', value: `<@${invoice.userId}>`, inline: true },
+                    { name: '📝 Description', value: invoice.description || 'No description', inline: false },
+                    { name: '🆔 Invoice ID', value: invoiceId, inline: true },
+                    { name: '🔗 Stripe Session', value: session.id, inline: true }
+                )
+                .setTimestamp();
+
+            await logChannel.send({ embeds: [embed] });
+
+            const user = await client.users.fetch(invoice.userId);
+            const userEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('✅ Payment Confirmed')
+                .setDescription(`Your payment for invoice **${invoiceId}** has been processed successfully!`)
+                .addFields(
+                    { name: '💰 Amount Paid', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency.toUpperCase()}`, inline: true },
+                    { name: '📝 Description', value: invoice.description || 'No description', inline: false }
+                )
+                .setTimestamp();
+
+            await user.send({ embeds: [userEmbed] }).catch(err => console.log('Could not DM user:', err.message));
+
+        } else if (event.type === 'checkout.session.expired') {
+            const session = event.data.object;
+            const invoiceId = session.metadata?.invoiceId;
+
+            if (!invoiceId || !database.invoices || !database.invoices[invoiceId]) {
+                console.log('Invoice not found for expired session:', session.id);
+                return;
+            }
+
+            const invoice = database.invoices[invoiceId];
+            if (invoice.status === 'pending') {
+                invoice.status = 'canceled';
+                invoice.canceledAt = Date.now();
+                invoice.cancelReason = 'Checkout session expired';
+                saveDatabase(database);
+
+                const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+                const embed = new EmbedBuilder()
+                    .setColor('#FF0000')
+                    .setTitle('❌ Payment Session Expired')
+                    .setDescription(`Invoice **${invoiceId}** session has expired without payment.`)
+                    .addFields(
+                        { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency.toUpperCase()}`, inline: true },
+                        { name: '👤 Customer', value: `<@${invoice.userId}>`, inline: true },
+                        { name: '📝 Description', value: invoice.description || 'No description', inline: false },
+                        { name: '🆔 Invoice ID', value: invoiceId, inline: true }
+                    )
+                    .setTimestamp();
+
+                await logChannel.send({ embeds: [embed] });
+            }
+
+        } else if (event.type === 'payment_intent.payment_failed') {
+            const paymentIntent = event.data.object;
+            
+            // Find invoice by payment intent ID
+            const invoiceId = Object.keys(database.invoices || {}).find(id => 
+                database.invoices[id].stripePaymentIntentId === paymentIntent.id
+            );
+
+            if (!invoiceId) {
+                console.log('Invoice not found for failed payment intent:', paymentIntent.id);
+                return;
+            }
+
+            const invoice = database.invoices[invoiceId];
+            if (invoice.status === 'pending') {
+                invoice.status = 'canceled';
+                invoice.canceledAt = Date.now();
+                invoice.cancelReason = paymentIntent.last_payment_error?.message || 'Payment failed';
+                saveDatabase(database);
+
+                const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+                const embed = new EmbedBuilder()
+                    .setColor('#FF0000')
+                    .setTitle('❌ Payment Failed')
+                    .setDescription(`Invoice **${invoiceId}** payment has failed.`)
+                    .addFields(
+                        { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency.toUpperCase()}`, inline: true },
+                        { name: '👤 Customer', value: `<@${invoice.userId}>`, inline: true },
+                        { name: '⚠️ Reason', value: invoice.cancelReason, inline: false },
+                        { name: '🆔 Invoice ID', value: invoiceId, inline: true }
+                    )
+                    .setTimestamp();
+
+                await logChannel.send({ embeds: [embed] });
+            }
+        }
+    } catch (error) {
+        console.error('Error handling webhook:', error);
+    }
+}
 
 async function handleButtonInteraction(interaction, database) {
     const pterodactyl = require('./utils/pterodactyl');

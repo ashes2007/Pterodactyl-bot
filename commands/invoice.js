@@ -111,8 +111,7 @@ module.exports = {
         const amount = interaction.options.getNumber('amount');
         const user = interaction.options.getUser('user');
         const currency = interaction.options.getString('currency');
-        const customDescription = interaction.options.getString('description') || '';
-        const description = `${customDescription ? customDescription + ' - ' : ''}Please visit the payment link below and complete your payment. Once payment is successful, send us the Order/Invoice ID along with a screenshot showing the payment went through for verification.`;
+        const customDescription = interaction.options.getString('description') || 'Stacy Bot Payment';
 
         await interaction.deferReply({ ephemeral: true });
 
@@ -128,7 +127,7 @@ module.exports = {
                         price_data: {
                             currency: currency,
                             product_data: {
-                                name: description,
+                                name: customDescription,
                                 description: `Invoice for ${user.tag}`,
                             },
                             unit_amount: amountInCents,
@@ -138,6 +137,7 @@ module.exports = {
                 ],
                 mode: 'payment',
                 metadata: {
+                    invoiceId: `inv_${Date.now()}`,
                     user_id: user.id,
                     user_tag: user.tag
                 },
@@ -145,15 +145,15 @@ module.exports = {
                 cancel_url: 'https://example.com/cancel',
             });
 
-            const invoiceId = `inv_${Date.now()}`;
+            const invoiceId = session.metadata.invoiceId;
 
             database.invoices[invoiceId] = {
                 id: invoiceId,
                 userId: user.id,
                 userTag: user.tag,
-                amount: amount,
+                amount: amountInCents,
                 currency: currency.toUpperCase(),
-                description: description,
+                description: customDescription,
                 status: 'unpaid',
                 stripeSessionId: session.id,
                 paymentUrl: session.url,
@@ -170,9 +170,9 @@ module.exports = {
                 .setDescription(`Invoice created successfully for ${user}`)
                 .addFields(
                     { name: '🆔 Invoice ID', value: invoiceId, inline: true },
-                    { name: '💰 Amount', value: `${amount} ${currency.toUpperCase()}`, inline: true },
+                    { name: '💰 Amount', value: `${(amountInCents / 100).toFixed(2)} ${currency.toUpperCase()}`, inline: true },
                     { name: '👤 User', value: user.tag, inline: true },
-                    { name: '📝 Description', value: description, inline: false },
+                    { name: '📝 Description', value: customDescription, inline: false },
                     { name: '🔗 Payment Link', value: `[Click here to pay](${session.url})`, inline: false },
                     { name: '📊 Status', value: '🟡 Unpaid', inline: true }
                 )
@@ -183,10 +183,12 @@ module.exports = {
 
             const publicEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle('💳 New Invoice Created')
-                .setDescription(`An invoice has been created for ${user}`)
+                .setTitle('
+💳 New Invoice Created')
+                .setDescription('Please visit the payment link below and complete your payment. Once payment is successful, send us the Order/Invoice ID along with a screenshot showing the payment went through for verification.')
                 .addFields(
-                    { name: '💰 Amount Due', value: `**${amount} ${currency.toUpperCase()}**`, inline: true },
+                    { name: '
+💰 Amount Due', value: `**${(amountInCents / 100).toFixed(2)} ${currency.toUpperCase()}**`, inline: true },
                     { name: '👤 Customer', value: user.toString(), inline: true },
                     { name: '🔗 Payment', value: `[Click here to pay](${session.url})`, inline: false }
                 )
@@ -201,8 +203,8 @@ module.exports = {
                     .setTitle('💳 New Invoice')
                     .setDescription(`You have a new invoice from ${interaction.guild.name}`)
                     .addFields(
-                        { name: '💰 Amount', value: `${amount} ${currency.toUpperCase()}`, inline: true },
-                        { name: '📝 Description', value: description, inline: false },
+                        { name: '💰 Amount', value: `${(amountInCents / 100).toFixed(2)} ${currency.toUpperCase()}`, inline: true },
+                        { name: '📝 Description', value: customDescription, inline: false },
                         { name: '🆔 Invoice ID', value: invoiceId, inline: false },
                         { name: '🔗 Pay Now', value: `[Click here to pay](${session.url})`, inline: false }
                     )
@@ -245,7 +247,7 @@ module.exports = {
             return;
         }
 
-        if (status === 'partial' && partialAmount >= invoice.amount) {
+        if (status === 'partial' && partialAmount >= invoice.amount / 100) {
             await interaction.reply({
                 content: '❌ Partial amount cannot be equal to or greater than the total amount. Use "paid" status instead.',
                 ephemeral: true
@@ -258,8 +260,8 @@ module.exports = {
         invoice.updatedBy = interaction.user.id;
 
         if (status === 'partial') {
-            invoice.partialAmount = partialAmount;
-            invoice.remainingAmount = invoice.amount - partialAmount;
+            invoice.partialAmount = Math.round(partialAmount * 100);
+            invoice.remainingAmount = invoice.amount - invoice.partialAmount;
         } else if (status === 'paid') {
             invoice.paidAt = Date.now();
             delete invoice.partialAmount;
@@ -290,13 +292,13 @@ module.exports = {
             .setDescription(`Invoice **${transactionId}** status updated`)
             .addFields(
                 { name: '📊 New Status', value: `${statusEmoji[status]} ${statusText[status]}`, inline: true },
-                { name: '💰 Amount', value: `${invoice.amount} ${invoice.currency}`, inline: true }
+                { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency}`, inline: true }
             );
 
         if (status === 'partial') {
             embed.addFields(
                 { name: '💵 Paid Amount', value: `${partialAmount} ${invoice.currency}`, inline: true },
-                { name: '💸 Remaining', value: `${invoice.remainingAmount.toFixed(2)} ${invoice.currency}`, inline: true }
+                { name: '💸 Remaining', value: `${(invoice.remainingAmount / 100).toFixed(2)} ${invoice.currency}`, inline: true }
             );
         }
 
@@ -318,7 +320,7 @@ module.exports = {
             if (status === 'partial') {
                 userEmbed.addFields(
                     { name: '💵 Paid', value: `${partialAmount} ${invoice.currency}`, inline: true },
-                    { name: '💸 Remaining', value: `${invoice.remainingAmount.toFixed(2)} ${invoice.currency}`, inline: true }
+                    { name: '💸 Remaining', value: `${(invoice.remainingAmount / 100).toFixed(2)} ${invoice.currency}`, inline: true }
                 );
             }
 
@@ -360,7 +362,7 @@ module.exports = {
             .addFields(
                 { name: '🆔 Invoice ID', value: invoice.id, inline: true },
                 { name: '👤 User', value: `<@${invoice.userId}> (${invoice.userTag})`, inline: true },
-                { name: '💰 Amount', value: `${invoice.amount} ${invoice.currency}`, inline: true },
+                { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency}`, inline: true },
                 { name: '📝 Description', value: invoice.description, inline: false },
                 { name: '📊 Status', value: `${statusEmoji[invoice.status]} ${statusText[invoice.status]}`, inline: true },
                 { name: '📅 Created', value: `<t:${Math.floor(invoice.createdAt / 1000)}:F>`, inline: false }
@@ -374,8 +376,8 @@ module.exports = {
 
         if (invoice.status === 'partial') {
             embed.addFields(
-                { name: '💵 Paid Amount', value: `${invoice.partialAmount} ${invoice.currency}`, inline: true },
-                { name: '💸 Remaining', value: `${invoice.remainingAmount.toFixed(2)} ${invoice.currency}`, inline: true }
+                { name: '💵 Paid Amount', value: `${(invoice.partialAmount / 100).toFixed(2)} ${invoice.currency}`, inline: true },
+                { name: '💸 Remaining', value: `${(invoice.remainingAmount / 100).toFixed(2)} ${invoice.currency}`, inline: true }
             );
         }
 
@@ -440,9 +442,9 @@ module.exports = {
         const partialInvoices = invoices.filter(inv => inv.status === 'partial');
         const canceledInvoices = invoices.filter(inv => inv.status === 'canceled');
 
-        const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-        const totalUnpaid = unpaidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-        const totalPartial = partialInvoices.reduce((sum, inv) => sum + (inv.partialAmount || 0), 0);
+        const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0) / 100;
+        const totalUnpaid = unpaidInvoices.reduce((sum, inv) => sum + inv.amount, 0) / 100;
+        const totalPartial = partialInvoices.reduce((sum, inv) => sum + (inv.partialAmount || 0), 0) / 100;
 
         embed.addFields(
             { name: '✅ Paid', value: `${paidInvoices.length} invoices`, inline: true },
@@ -452,9 +454,9 @@ module.exports = {
         );
 
         const invoiceList = invoices.slice(0, 15).map(inv => {
-            let line = `${statusEmoji[inv.status]} **${inv.id}** - ${inv.amount} ${inv.currency} - <@${inv.userId}>`;
+            let line = `${statusEmoji[inv.status]} **${inv.id}** - ${(inv.amount / 100).toFixed(2)} ${inv.currency} - <@${inv.userId}>`;
             if (inv.status === 'partial') {
-                line += ` (${inv.partialAmount}/${inv.amount} paid)`;
+                line += ` (${(inv.partialAmount / 100).toFixed(2)}/${(inv.amount / 100).toFixed(2)} paid)`;
             }
             return line;
         }).join('\n');
@@ -496,7 +498,7 @@ module.exports = {
                     .addFields(
                         { name: '🆔 Invoice ID', value: invoice.id, inline: true },
                         { name: '👤 Customer', value: `<@${invoice.userId}>`, inline: true },
-                        { name: '💰 Amount', value: `${invoice.amount} ${invoice.currency}`, inline: true },
+                        { name: '💰 Amount', value: `${(invoice.amount / 100).toFixed(2)} ${invoice.currency}`, inline: true },
                         { name: '📝 Description', value: invoice.description.substring(0, 100), inline: false },
                         { name: '📊 Status', value: status === 'paid' ? '✅ Paid' : '❌ Canceled', inline: true },
                         { name: '👤 Updated By', value: `<@${invoice.updatedBy}>`, inline: true }
