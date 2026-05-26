@@ -279,8 +279,6 @@ module.exports = {
             unpaid: 'Unpaid',
             partial: 'Partial Paid',
             canceled: 'Canceled'
-        };: 'Partial Paid',
-            canceled: 'Canceled'
         };
 
         const embed = new EmbedBuilder()
