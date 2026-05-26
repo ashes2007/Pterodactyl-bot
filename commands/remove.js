@@ -74,6 +74,8 @@ module.exports = {
                         `**Server Name:** ${serverData.pterodactylName}\n` +
                         `**Status:** Deleted`
                 });
+
+                await processQueue(interaction.client, database);
             } else {
                 await interaction.editReply('Suspending server...');
 
@@ -113,4 +115,96 @@ module.exports = {
 function saveDatabase(data) {
     const dbPath = path.join(__dirname, '..', 'database.json');
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+}
+
+async function processQueue(client, database) {
+    if (!database.queue || database.queue.length === 0) {
+        return;
+    }
+
+    console.log(`Processing queue... ${database.queue.length} entries pending`);
+
+    try {
+        const nodes = await pterodactyl.getNodes();
+        if (nodes.length === 0) {
+            console.log('No nodes available for queue processing');
+            return;
+        }
+
+        const node = nodes[0];
+        const allocations = await pterodactyl.getNodeAllocations(node.attributes.id);
+        
+        if (allocations.length === 0) {
+            console.log('No allocations available for queue processing');
+            return;
+        }
+
+        const queueEntry = database.queue.shift();
+        saveDatabase(database);
+
+        console.log(`Creating bot from queue for user ${queueEntry.userId}`);
+
+        let botName = `Bot-${queueEntry.clientId}`;
+        let serverName = `Server-${queueEntry.serverId}`;
+
+        try {
+            const { Client, GatewayIntentBits } = require('discord.js');
+            const tempClient = new Client({ intents: [GatewayIntentBits.Guilds] });
+            
+            await tempClient.login(queueEntry.token);
+            botName = tempClient.user.username;
+            
+            try {
+                const guild = await tempClient.guilds.fetch(queueEntry.serverId);
+                serverName = guild.name;
+            } catch (err) {
+                console.log('Could not fetch server name:', err.message);
+            }
+            
+            await tempClient.destroy();
+        } catch (err) {
+            console.log('Could not fetch bot information:', err.message);
+        }
+
+        const serverInfo = await pterodactyl.createServer(queueEntry.token, queueEntry.clientId, queueEntry.serverId, botName, serverName);
+        await pterodactyl.startServer(serverInfo.uuid);
+
+        const serverData = {
+            botName: botName,
+            serverName: serverName,
+            clientId: queueEntry.clientId,
+            discordServerId: queueEntry.serverId,
+            pterodactylId: serverInfo.pterodactylId,
+            pterodactylUuid: serverInfo.uuid,
+            pterodactylName: serverInfo.name || `Bot-${queueEntry.clientId}`,
+            createdAt: Date.now(),
+            createdBy: queueEntry.userId,
+            suspended: false,
+            deleteAt: null,
+            fromQueue: true
+        };
+
+        database.servers[serverInfo.uuid] = serverData;
+        saveDatabase(database);
+
+        try {
+            const user = await client.users.fetch(queueEntry.userId);
+            await user.send(
+                `✅ Your bot instance has been created from the queue!\n\n` +
+                `**Bot Name:** ${botName}\n` +
+                `**Client ID:** ${queueEntry.clientId}\n` +
+                `**Server Name:** ${serverName}\n\n` +
+                `Your bot is now online!`
+            );
+        } catch (err) {
+            console.error('Could not send DM to user:', err.message);
+        }
+
+        console.log('Queue entry processed successfully!');
+
+    } catch (error) {
+        console.error('Error processing queue:', error.message);
+        database.queue.unshift(queueEntry);
+        saveDatabase(database);
+    }
 }

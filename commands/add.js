@@ -88,6 +88,53 @@ module.exports = {
 
 async function processBot(interaction, database, token, clientId, serverId) {
     try {
+        await interaction.editReply('🔍 Checking allocation availability...');
+
+        const nodes = await pterodactyl.getNodes();
+        if (nodes.length === 0) {
+            await interaction.editReply('❌ No nodes available.');
+            return;
+        }
+
+        const node = nodes[0];
+        const allocations = await pterodactyl.getNodeAllocations(node.attributes.id);
+        
+        if (allocations.length === 0) {
+            await interaction.editReply('⏳ No allocations available. Adding to queue...');
+            
+            const queueEntry = {
+                token: token,
+                clientId: clientId,
+                serverId: serverId,
+                userId: interaction.user.id,
+                addedAt: Date.now()
+            };
+            
+            if (!database.queue) {
+                database.queue = [];
+            }
+            
+            database.queue.push(queueEntry);
+            saveDatabase(database);
+            
+            clearPendingData(interaction.user.id);
+            
+            await interaction.editReply(
+                `✅ Added to queue!
+
+` +
+                `**Position in Queue:** ${database.queue.length}
+` +
+                `**Client ID:** ${clientId}
+` +
+                `**Server ID:** ${serverId}
+
+` +
+                `Your bot will be created automatically when an allocation becomes available. You will be notified!`
+            );
+            return;
+        }
+
         await interaction.editReply('🔍 Fetching bot and server information...');
 
         let botName = `Bot-${clientId}`;

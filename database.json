@@ -1,3 +1,7 @@
 {
-  "servers": {}
+  "servers": {},
+  "queue": [],
+  "giveaways": {},
+  "invoices": {},
+  "giveawayBlacklist": []
 }

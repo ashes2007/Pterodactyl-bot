@@ -16,8 +16,9 @@ module.exports = {
         }
 
         const servers = Object.values(database.servers);
+        const queueLength = database.queue ? database.queue.length : 0;
 
-        if (servers.length === 0) {
+        if (servers.length === 0 && queueLength === 0) {
             await interaction.reply({
                 content: '📋 No bot instances found.',
                 ephemeral: true
@@ -47,7 +48,11 @@ module.exports = {
             });
         }
 
-        embed.setFooter({ text: `Total: ${servers.length} bot(s)` });
+        let footerText = `Total: ${servers.length} bot(s)`;
+        if (queueLength > 0) {
+            footerText += ` | Queue: ${queueLength} pending`;
+        }
+        embed.setFooter({ text: footerText });
 
         await interaction.reply({
             embeds: [embed],
