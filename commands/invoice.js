@@ -111,7 +111,8 @@ module.exports = {
         const amount = interaction.options.getNumber('amount');
         const user = interaction.options.getUser('user');
         const currency = interaction.options.getString('currency');
-        const description = interaction.options.getString('description') || 'Bot hosting service';
+        const customDescription = interaction.options.getString('description') || '';
+        const description = `${customDescription ? customDescription + ' - ' : ''}Please visit the payment link below and complete your payment. Once payment is successful, send us the Order/Invoice ID along with a screenshot showing the payment went through for verification.`;
 
         await interaction.deferReply({ ephemeral: true });
 
@@ -266,6 +267,8 @@ module.exports = {
         }
 
         saveDatabase(database);
+
+        await this.logPaymentStatus(interaction, invoice, status);
 
         const statusEmoji = {
             paid: '✅',
@@ -465,6 +468,50 @@ module.exports = {
         }
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
+    },
+
+    async logPaymentStatus(interaction, invoice, status) {
+        const logChannelId = '1508754578399690874';
+        
+        try {
+            const logChannel = await interaction.client.channels.fetch(logChannelId);
+            if (!logChannel) return;
+
+            const statusColors = {
+                paid: '#00FF00',
+                canceled: '#FF0000',
+                unpaid: '#FFA500'
+            };
+
+            const statusEmojis = {
+                paid: '✅',
+                canceled: '❌',
+                unpaid: '⚠️'
+            };
+
+            if (status === 'paid' || status === 'canceled') {
+                const logEmbed = new EmbedBuilder()
+                    .setColor(statusColors[status])
+                    .setTitle(`${statusEmojis[status]} Payment ${status === 'paid' ? 'Successful' : 'Canceled'}`)
+                    .addFields(
+                        { name: '🆔 Invoice ID', value: invoice.id, inline: true },
+                        { name: '👤 Customer', value: `<@${invoice.userId}>`, inline: true },
+                        { name: '💰 Amount', value: `${invoice.amount} ${invoice.currency}`, inline: true },
+                        { name: '📝 Description', value: invoice.description.substring(0, 100), inline: false },
+                        { name: '📊 Status', value: status === 'paid' ? '✅ Paid' : '❌ Canceled', inline: true },
+                        { name: '👤 Updated By', value: `<@${invoice.updatedBy}>`, inline: true }
+                    )
+                    .setTimestamp();
+
+                if (status === 'paid' && invoice.paidAt) {
+                    logEmbed.addFields({ name: '⏰ Paid At', value: `<t:${Math.floor(invoice.paidAt / 1000)}:F>`, inline: false });
+                }
+
+                await logChannel.send({ embeds: [logEmbed] });
+            }
+        } catch (error) {
+            console.error('Error logging payment status:', error);
+        }
     }
 };
 
