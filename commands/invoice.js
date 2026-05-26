@@ -183,12 +183,10 @@ module.exports = {
 
             const publicEmbed = new EmbedBuilder()
                 .setColor('#5865F2')
-                .setTitle('
-💳 New Invoice Created')
+                .setTitle('💳 New Invoice Created')
                 .setDescription('Please visit the payment link below and complete your payment. Once payment is successful, send us the Order/Invoice ID along with a screenshot showing the payment went through for verification.')
                 .addFields(
-                    { name: '
-💰 Amount Due', value: `**${(amountInCents / 100).toFixed(2)} ${currency.toUpperCase()}**`, inline: true },
+                    { name: 'ud83dudca0 Amount Due', value: `**${(amountInCents / 100).toFixed(2)} ${currency.toUpperCase()}**`, inline: true },
                     { name: '👤 Customer', value: user.toString(), inline: true },
                     { name: '🔗 Payment', value: `[Click here to pay](${session.url})`, inline: false }
                 )
