@@ -50,7 +50,8 @@ module.exports = {
                         .addChoices(
                             { name: 'Paid', value: 'paid' },
                             { name: 'Unpaid', value: 'unpaid' },
-                            { name: 'Partial Paid', value: 'partial' }
+                            { name: 'Partial Paid', value: 'partial' },
+                            { name: 'Canceled', value: 'canceled' }
                         ))
                 .addNumberOption(option =>
                     option.setName('partial_amount')
@@ -76,7 +77,8 @@ module.exports = {
                         .addChoices(
                             { name: 'Paid', value: 'paid' },
                             { name: 'Unpaid', value: 'unpaid' },
-                            { name: 'Partial Paid', value: 'partial' }
+                            { name: 'Partial Paid', value: 'partial' },
+                            { name: 'Canceled', value: 'canceled' }
                         ))
                 .addUserOption(option =>
                     option.setName('user')
@@ -118,14 +120,28 @@ module.exports = {
         try {
             const amountInCents = Math.round(amount * 100);
 
-            const paymentIntent = await stripe.paymentIntents.create({
-                amount: amountInCents,
-                currency: currency,
-                description: description,
+            const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [
+                    {
+                        price_data: {
+                            currency: currency,
+                            product_data: {
+                                name: description,
+                                description: `Invoice for ${user.tag}`,
+                            },
+                            unit_amount: amountInCents,
+                        },
+                        quantity: 1,
+                    },
+                ],
+                mode: 'payment',
                 metadata: {
                     user_id: user.id,
                     user_tag: user.tag
-                }
+                },
+                success_url: 'https://example.com/success',
+                cancel_url: 'https://example.com/cancel',
             });
 
             const invoiceId = `inv_${Date.now()}`;
@@ -138,8 +154,8 @@ module.exports = {
                 currency: currency.toUpperCase(),
                 description: description,
                 status: 'unpaid',
-                stripePaymentIntentId: paymentIntent.id,
-                stripeClientSecret: paymentIntent.client_secret,
+                stripeSessionId: session.id,
+                paymentUrl: session.url,
                 createdBy: interaction.user.id,
                 createdAt: Date.now(),
                 updatedAt: Date.now()
@@ -156,13 +172,27 @@ module.exports = {
                     { name: '💰 Amount', value: `${amount} ${currency.toUpperCase()}`, inline: true },
                     { name: '👤 User', value: user.tag, inline: true },
                     { name: '📝 Description', value: description, inline: false },
-                    { name: '🔗 Stripe Payment ID', value: paymentIntent.id, inline: false },
+                    { name: '🔗 Payment Link', value: `[Click here to pay](${session.url})`, inline: false },
                     { name: '📊 Status', value: '🟡 Unpaid', inline: true }
                 )
                 .setFooter({ text: 'Use /invoice view to see details' })
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
+
+            const publicEmbed = new EmbedBuilder()
+                .setColor('#5865F2')
+                .setTitle('💳 New Invoice Created')
+                .setDescription(`An invoice has been created for ${user}`)
+                .addFields(
+                    { name: '💰 Amount Due', value: `**${amount} ${currency.toUpperCase()}**`, inline: true },
+                    { name: '👤 Customer', value: user.toString(), inline: true },
+                    { name: '🔗 Payment', value: `[Click here to pay](${session.url})`, inline: false }
+                )
+                .setFooter({ text: `Invoice ID: ${invoiceId}` })
+                .setTimestamp();
+
+            await interaction.channel.send({ embeds: [publicEmbed] });
 
             try {
                 const dmEmbed = new EmbedBuilder()
@@ -172,9 +202,10 @@ module.exports = {
                     .addFields(
                         { name: '💰 Amount', value: `${amount} ${currency.toUpperCase()}`, inline: true },
                         { name: '📝 Description', value: description, inline: false },
-                        { name: '🆔 Invoice ID', value: invoiceId, inline: false }
+                        { name: '🆔 Invoice ID', value: invoiceId, inline: false },
+                        { name: '🔗 Pay Now', value: `[Click here to pay](${session.url})`, inline: false }
                     )
-                    .setFooter({ text: 'Please contact an admin to complete payment' })
+                    .setFooter({ text: 'Please complete payment at your earliest convenience' })
                     .setTimestamp();
 
                 await user.send({ embeds: [dmEmbed] });
@@ -239,13 +270,17 @@ module.exports = {
         const statusEmoji = {
             paid: '✅',
             unpaid: '🟡',
-            partial: '🟠'
+            partial: '🟠',
+            canceled: '❌'
         };
 
         const statusText = {
             paid: 'Paid',
             unpaid: 'Unpaid',
-            partial: 'Partial Paid'
+            partial: 'Partial Paid',
+            canceled: 'Canceled'
+        };: 'Partial Paid',
+            canceled: 'Canceled'
         };
 
         const embed = new EmbedBuilder()
@@ -318,7 +353,7 @@ module.exports = {
         };
 
         const embed = new EmbedBuilder()
-            .setColor(invoice.status === 'paid' ? '#00FF00' : invoice.status === 'partial' ? '#FF8800' : '#FFFF00')
+            .setColor(invoice.status === 'paid' ? '#00FF00' : invoice.status === 'partial' ? '#FF8800' : invoice.status === 'canceled' ? '#FF0000' : '#FFFF00')
             .setTitle('📄 Invoice Details')
             .setDescription(`Details for invoice **${transactionId}**`)
             .addFields(
@@ -329,6 +364,12 @@ module.exports = {
                 { name: '📊 Status', value: `${statusEmoji[invoice.status]} ${statusText[invoice.status]}`, inline: true },
                 { name: '📅 Created', value: `<t:${Math.floor(invoice.createdAt / 1000)}:F>`, inline: false }
             );
+
+        if (invoice.paymentUrl && invoice.status === 'unpaid') {
+            embed.addFields(
+                { name: '🔗 Payment Link', value: `[Click here to pay](${invoice.paymentUrl})`, inline: false }
+            );
+        }
 
         if (invoice.status === 'partial') {
             embed.addFields(
@@ -343,9 +384,9 @@ module.exports = {
             );
         }
 
-        if (invoice.stripePaymentIntentId) {
+        if (invoice.stripeSessionId) {
             embed.addFields(
-                { name: '🔗 Stripe Payment ID', value: invoice.stripePaymentIntentId, inline: false }
+                { name: '🔗 Stripe Session ID', value: invoice.stripeSessionId, inline: false }
             );
         }
 
@@ -396,6 +437,7 @@ module.exports = {
         const paidInvoices = invoices.filter(inv => inv.status === 'paid');
         const unpaidInvoices = invoices.filter(inv => inv.status === 'unpaid');
         const partialInvoices = invoices.filter(inv => inv.status === 'partial');
+        const canceledInvoices = invoices.filter(inv => inv.status === 'canceled');
 
         const totalPaid = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
         const totalUnpaid = unpaidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
@@ -404,7 +446,8 @@ module.exports = {
         embed.addFields(
             { name: '✅ Paid', value: `${paidInvoices.length} invoices`, inline: true },
             { name: '🟡 Unpaid', value: `${unpaidInvoices.length} invoices`, inline: true },
-            { name: '🟠 Partial', value: `${partialInvoices.length} invoices`, inline: true }
+            { name: '🟠 Partial', value: `${partialInvoices.length} invoices`, inline: true },
+            { name: '❌ Canceled', value: `${canceledInvoices.length} invoices`, inline: true }
         );
 
         const invoiceList = invoices.slice(0, 15).map(inv => {
